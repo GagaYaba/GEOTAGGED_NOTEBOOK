@@ -64,6 +64,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -106,31 +107,52 @@ import java.util.Locale
 
 @Composable
 fun AddEditNoteScreen(
-    noteToEdit: Note?,
-    onBackClick: () -> Unit,
-    onSaveClick: suspend (Note) -> Boolean,
-    onDeleteClick: suspend (Long) -> Boolean
+    noteId: Long,
+    viewModel: com.ynov.geotagged_notebook.ui.viewmodel.AddEditNoteViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val noteId = noteToEdit?.id ?: 0L
-    val draftStore = remember(context) { NoteDraftStore(context) }
-    val restoredDraft = remember(noteId) { draftStore.load(noteId) }
-    val initialNote = restoredDraft ?: noteToEdit
-    val createdAt = remember(noteId) { initialNote?.createdAt ?: System.currentTimeMillis() }
-    val displayedUpdatedAt = remember(noteId) { initialNote?.updatedAt ?: createdAt }
+    val note by viewModel.note.collectAsState()
+    val restoredDraft by viewModel.restoredDraft.collectAsState()
 
-    var title by rememberSaveable(noteId) { mutableStateOf(initialNote?.title.orEmpty()) }
-    var content by rememberSaveable(noteId) { mutableStateOf(initialNote?.content.orEmpty()) }
-    var imageUriString by rememberSaveable(noteId) { mutableStateOf(initialNote?.imageUri) }
-    var latitude by rememberSaveable(noteId) { mutableStateOf(initialNote?.latitude) }
-    var longitude by rememberSaveable(noteId) { mutableStateOf(initialNote?.longitude) }
-    var locationName by rememberSaveable(noteId) { mutableStateOf(initialNote?.locationName.orEmpty()) }
-    var tagsText by rememberSaveable(noteId) {
-        mutableStateOf(initialNote?.tags?.joinToString(", ").orEmpty())
+    LaunchedEffect(noteId) {
+        viewModel.loadNoteAndDraft(noteId)
     }
-    var isFavorite by rememberSaveable(noteId) { mutableStateOf(initialNote?.isFavorite ?: false) }
-    var isArchived by rememberSaveable(noteId) { mutableStateOf(initialNote?.isArchived ?: false) }
+
+    val initialNote = restoredDraft ?: note
+    val effectiveNoteId = note?.id ?: if (noteId > 0L) noteId else 0L
+    val createdAt = remember(effectiveNoteId, initialNote) { initialNote?.createdAt ?: System.currentTimeMillis() }
+    val displayedUpdatedAt = remember(effectiveNoteId, initialNote) { initialNote?.updatedAt ?: createdAt }
+
+    var title by rememberSaveable { mutableStateOf("") }
+    var content by rememberSaveable { mutableStateOf("") }
+    var imageUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    var latitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var longitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var locationName by rememberSaveable { mutableStateOf("") }
+    var tagsText by rememberSaveable { mutableStateOf("") }
+    var isFavorite by rememberSaveable { mutableStateOf(false) }
+    var isArchived by rememberSaveable { mutableStateOf(false) }
+
+    var isInitialized by remember(noteId) { mutableStateOf(false) }
+    LaunchedEffect(initialNote) {
+        if (initialNote != null && !isInitialized) {
+            title = initialNote.title
+            content = initialNote.content
+            imageUriString = initialNote.imageUri
+            latitude = initialNote.latitude
+            longitude = initialNote.longitude
+            locationName = initialNote.locationName.orEmpty()
+            tagsText = initialNote.tags.joinToString(", ")
+            isFavorite = initialNote.isFavorite
+            isArchived = initialNote.isArchived
+            isInitialized = true
+        } else if (initialNote == null && noteId == 0L && !isInitialized) {
+            isInitialized = true
+        }
+    }
+
     var tempCameraUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var isLocating by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
@@ -150,7 +172,7 @@ fun AddEditNoteScreen(
         .distinctBy { it.lowercase(Locale.FRANCE) }
 
     fun currentNote(updatedAt: Long = System.currentTimeMillis()) = Note(
-        id = noteId,
+        id = effectiveNoteId,
         title = title.trim(),
         content = content.trim(),
         imageUri = imageUriString,
@@ -164,7 +186,7 @@ fun AddEditNoteScreen(
         isArchived = isArchived
     )
 
-    val original = noteToEdit
+    val original = initialNote
     val hasChanges = title != original?.title.orEmpty() ||
             content != original?.content.orEmpty() ||
             imageUriString != original?.imageUri ||
@@ -187,7 +209,7 @@ fun AddEditNoteScreen(
         isArchived
     ) {
         delay(500)
-        if (hasChanges) draftStore.save(currentNote()) else draftStore.clear(noteId)
+        if (hasChanges) viewModel.saveDraft(currentNote()) else viewModel.clearDraft(effectiveNoteId)
     }
 
     fun requestExit() {
@@ -202,10 +224,10 @@ fun AddEditNoteScreen(
         if (isSaving) return
         isSaving = true
         scope.launch {
-            val saved = onSaveClick(currentNote())
+            val saved = viewModel.saveNote(currentNote())
             isSaving = false
             if (saved) {
-                draftStore.clear(noteId)
+                viewModel.clearDraft(effectiveNoteId)
                 onBackClick()
             } else {
                 Toast.makeText(context, context.getString(R.string.save_error), Toast.LENGTH_SHORT).show()
@@ -214,13 +236,13 @@ fun AddEditNoteScreen(
     }
 
     fun deleteNote() {
-        if (noteId == 0L || isDeleting) return
+        if (effectiveNoteId == 0L || isDeleting) return
         isDeleting = true
         scope.launch {
-            val deleted = onDeleteClick(noteId)
+            val deleted = viewModel.deleteNote(effectiveNoteId)
             isDeleting = false
             if (deleted) {
-                draftStore.clear(noteId)
+                viewModel.clearDraft(effectiveNoteId)
                 onBackClick()
             } else {
                 Toast.makeText(context, context.getString(R.string.delete_error), Toast.LENGTH_SHORT).show()
@@ -329,7 +351,7 @@ fun AddEditNoteScreen(
             text = { Text(stringResource(R.string.leave_edit_message)) },
             confirmButton = {
                 TextButton(onClick = {
-                    draftStore.save(currentNote())
+                    viewModel.saveDraft(currentNote())
                     showExitDialog = false
                     onBackClick()
                 }) { Text(stringResource(R.string.keep_draft_leave)) }
@@ -337,7 +359,7 @@ fun AddEditNoteScreen(
             dismissButton = {
                 Column(horizontalAlignment = Alignment.End) {
                     TextButton(onClick = {
-                        draftStore.clear(noteId)
+                        viewModel.clearDraft(effectiveNoteId)
                         showExitDialog = false
                         onBackClick()
                     }) { Text(stringResource(R.string.discard_changes)) }
@@ -349,11 +371,11 @@ fun AddEditNoteScreen(
         )
     }
 
-    if (showDeleteDialog && noteToEdit != null) {
+    if (showDeleteDialog && effectiveNoteId != 0L) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text(stringResource(R.string.delete_note)) },
-            text = { Text(stringResource(R.string.delete_note_confirmation, noteToEdit.title)) },
+            text = { Text(stringResource(R.string.delete_note_confirmation, note?.title.orEmpty())) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -723,7 +745,7 @@ fun AddEditNoteScreen(
                 }
             }
 
-            if (noteToEdit != null) {
+            if (effectiveNoteId != 0L) {
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = {

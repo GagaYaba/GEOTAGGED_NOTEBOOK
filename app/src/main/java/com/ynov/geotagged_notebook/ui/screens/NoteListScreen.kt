@@ -58,6 +58,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -103,12 +104,13 @@ private enum class NoteSection { ALL, FAVORITES, ARCHIVES }
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NoteListScreen(
-    notes: List<Note>,
+    viewModel: com.ynov.geotagged_notebook.ui.viewmodel.NoteListViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onNoteClick: (Long) -> Unit,
     onAddNoteClick: () -> Unit,
-    onOpenMapClick: () -> Unit,
-    onToggleFavorite: (Note) -> Unit
+    onOpenMapClick: () -> Unit
 ) {
+    val notes by viewModel.notes.collectAsState()
+    val onToggleFavorite: (Note) -> Unit = { note -> viewModel.toggleFavorite(note) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)

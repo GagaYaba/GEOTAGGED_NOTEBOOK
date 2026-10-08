@@ -15,9 +15,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -34,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,12 +43,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.ynov.geotagged_notebook.R
 import com.ynov.geotagged_notebook.data.Note
+import com.ynov.geotagged_notebook.data.NoteRepository
 import com.ynov.geotagged_notebook.ui.theme.YouNotesBackground
 import com.ynov.geotagged_notebook.ui.theme.YouNotesSurface
 import com.ynov.geotagged_notebook.ui.theme.YouNotesText
@@ -57,14 +60,21 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteDetailScreen(
-    note: Note?,
+    noteId: Long,
     onBackClick: () -> Unit,
     onEditClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit
 ) {
+    val context = LocalContext.current
+    var note by remember { mutableStateOf<Note?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    if (note == null) {
+    LaunchedEffect(noteId) {
+        note = NoteRepository.getInstance(context).getNoteById(noteId)
+    }
+
+    val currentNote = note
+    if (currentNote == null) {
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -94,12 +104,12 @@ fun NoteDetailScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text(stringResource(R.string.delete_note)) },
-            text = { Text(stringResource(R.string.delete_note_confirmation, note.title)) },
+            text = { Text(stringResource(R.string.delete_note_confirmation, currentNote.title)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
-                        onDeleteClick(note.id)
+                        onDeleteClick(currentNote.id)
                     }
                 ) {
                     Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
@@ -123,7 +133,7 @@ fun NoteDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onEditClick(note.id) }) {
+                    IconButton(onClick = { onEditClick(currentNote.id) }) {
                         Icon(imageVector = Icons.Default.Edit, contentDescription = stringResource(R.string.edit))
                     }
                     IconButton(onClick = { showDeleteDialog = true }) {
@@ -149,20 +159,20 @@ fun NoteDetailScreen(
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = note.title,
+                        text = currentNote.title,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
-                    if (note.isFavorite) {
+                    if (currentNote.isFavorite) {
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = stringResource(R.string.favorite_note),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                    if (note.isArchived) {
+                    if (currentNote.isArchived) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
                             imageVector = Icons.Default.Archive,
@@ -173,16 +183,16 @@ fun NoteDetailScreen(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = stringResource(R.string.created_date, note.formattedCreatedDate),
+                    text = stringResource(R.string.created_date, currentNote.formattedCreatedDate),
                     style = MaterialTheme.typography.bodyMedium,
                     color = YouNotesTextMuted
                 )
                 Text(
-                    text = stringResource(R.string.modified_date, note.formattedUpdatedDate),
+                    text = stringResource(R.string.modified_date, currentNote.formattedUpdatedDate),
                     style = MaterialTheme.typography.bodyMedium,
                     color = YouNotesTextMuted
                 )
-                if (note.tags.isNotEmpty()) {
+                if (currentNote.tags.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -193,7 +203,7 @@ fun NoteDetailScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = note.tags.joinToString("  ") { "#$it" },
+                            text = currentNote.tags.joinToString("  ") { "#$it" },
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.secondary
                         )
@@ -220,19 +230,19 @@ fun NoteDetailScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = note.displayLocation.ifBlank {
+                            text = currentNote.displayLocation.ifBlank {
                                 stringResource(R.string.location_unavailable)
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (note.latitude != null && note.longitude != null) {
+                        if (currentNote.latitude != null && currentNote.longitude != null) {
                             Text(
                                 text = stringResource(
                                     R.string.coordinates,
-                                    note.latitude.toString(),
-                                    note.longitude.toString()
+                                    currentNote.latitude.toString(),
+                                    currentNote.longitude.toString()
                                 ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.outline
@@ -243,7 +253,7 @@ fun NoteDetailScreen(
             }
 
             // Photo if available
-            val imgUri = note.imageUri
+            val imgUri = currentNote.imageUri
             if (!imgUri.isNullOrEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -278,7 +288,7 @@ fun NoteDetailScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = note.content.ifBlank { stringResource(R.string.empty_content) },
+                        text = currentNote.content.ifBlank { stringResource(R.string.empty_content) },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )

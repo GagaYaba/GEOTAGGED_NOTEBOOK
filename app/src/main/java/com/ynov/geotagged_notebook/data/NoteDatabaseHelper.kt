@@ -51,116 +51,134 @@ class NoteDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
-            db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_CREATED_AT INTEGER NOT NULL DEFAULT 0")
-            db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_UPDATED_AT INTEGER NOT NULL DEFAULT 0")
-            db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_TAGS TEXT NOT NULL DEFAULT '[]'")
-            db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_IS_FAVORITE INTEGER NOT NULL DEFAULT 0")
-            db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_IS_ARCHIVED INTEGER NOT NULL DEFAULT 0")
-            db.execSQL(
-                "UPDATE $TABLE_NOTES SET $COLUMN_CREATED_AT = $COLUMN_TIMESTAMP, " +
-                        "$COLUMN_UPDATED_AT = $COLUMN_TIMESTAMP"
-            )
+            try {
+                db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_CREATED_AT INTEGER NOT NULL DEFAULT 0")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_UPDATED_AT INTEGER NOT NULL DEFAULT 0")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_TAGS TEXT NOT NULL DEFAULT '[]'")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_IS_FAVORITE INTEGER NOT NULL DEFAULT 0")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE $TABLE_NOTES ADD COLUMN $COLUMN_IS_ARCHIVED INTEGER NOT NULL DEFAULT 0")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL(
+                    "UPDATE $TABLE_NOTES SET $COLUMN_CREATED_AT = $COLUMN_TIMESTAMP, " +
+                            "$COLUMN_UPDATED_AT = $COLUMN_TIMESTAMP"
+                )
+            } catch (_: Exception) {}
         }
     }
 
     fun getAllNotes(): List<Note> {
         val notesList = mutableListOf<Note>()
-        val selectQuery = "SELECT * FROM $TABLE_NOTES ORDER BY $COLUMN_UPDATED_AT DESC"
-        val db = readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
+        try {
+            val selectQuery = "SELECT * FROM $TABLE_NOTES ORDER BY $COLUMN_UPDATED_AT DESC"
+            val db = readableDatabase
+            val cursor = db.rawQuery(selectQuery, null)
 
-        cursor.use { c ->
-            if (c.moveToFirst()) {
-                val idIndex = c.getColumnIndexOrThrow(COLUMN_ID)
-                val titleIndex = c.getColumnIndexOrThrow(COLUMN_TITLE)
-                val contentIndex = c.getColumnIndexOrThrow(COLUMN_CONTENT)
-                val imageUriIndex = c.getColumnIndexOrThrow(COLUMN_IMAGE_URI)
-                val createdAtIndex = c.getColumnIndexOrThrow(COLUMN_CREATED_AT)
-                val updatedAtIndex = c.getColumnIndexOrThrow(COLUMN_UPDATED_AT)
-                val latitudeIndex = c.getColumnIndexOrThrow(COLUMN_LATITUDE)
-                val longitudeIndex = c.getColumnIndexOrThrow(COLUMN_LONGITUDE)
-                val locationNameIndex = c.getColumnIndexOrThrow(COLUMN_LOCATION_NAME)
-                val tagsIndex = c.getColumnIndexOrThrow(COLUMN_TAGS)
-                val favoriteIndex = c.getColumnIndexOrThrow(COLUMN_IS_FAVORITE)
-                val archivedIndex = c.getColumnIndexOrThrow(COLUMN_IS_ARCHIVED)
+            cursor.use { c ->
+                if (c.moveToFirst()) {
+                    val idIndex = c.getColumnIndexOrThrow(COLUMN_ID)
+                    val titleIndex = c.getColumnIndexOrThrow(COLUMN_TITLE)
+                    val contentIndex = c.getColumnIndexOrThrow(COLUMN_CONTENT)
+                    val imageUriIndex = c.getColumnIndexOrThrow(COLUMN_IMAGE_URI)
+                    val createdAtIndex = c.getColumnIndexOrThrow(COLUMN_CREATED_AT)
+                    val updatedAtIndex = c.getColumnIndexOrThrow(COLUMN_UPDATED_AT)
+                    val latitudeIndex = c.getColumnIndexOrThrow(COLUMN_LATITUDE)
+                    val longitudeIndex = c.getColumnIndexOrThrow(COLUMN_LONGITUDE)
+                    val locationNameIndex = c.getColumnIndexOrThrow(COLUMN_LOCATION_NAME)
+                    val tagsIndex = c.getColumnIndexOrThrow(COLUMN_TAGS)
+                    val favoriteIndex = c.getColumnIndexOrThrow(COLUMN_IS_FAVORITE)
+                    val archivedIndex = c.getColumnIndexOrThrow(COLUMN_IS_ARCHIVED)
 
-                do {
-                    val id = c.getLong(idIndex)
-                    val title = c.getString(titleIndex)
-                    val content = c.getString(contentIndex)
-                    val imageUri = if (!c.isNull(imageUriIndex)) c.getString(imageUriIndex) else null
-                    val createdAt = c.getLong(createdAtIndex)
-                    val updatedAt = c.getLong(updatedAtIndex)
-                    val latitude = if (!c.isNull(latitudeIndex)) c.getDouble(latitudeIndex) else null
-                    val longitude = if (!c.isNull(longitudeIndex)) c.getDouble(longitudeIndex) else null
-                    val locationName = if (!c.isNull(locationNameIndex)) c.getString(locationNameIndex) else null
+                    do {
+                        val id = c.getLong(idIndex)
+                        val title = c.getString(titleIndex)
+                        val content = c.getString(contentIndex)
+                        val imageUri = if (!c.isNull(imageUriIndex)) c.getString(imageUriIndex) else null
+                        val createdAt = c.getLong(createdAtIndex)
+                        val updatedAt = c.getLong(updatedAtIndex)
+                        val latitude = if (!c.isNull(latitudeIndex)) c.getDouble(latitudeIndex) else null
+                        val longitude = if (!c.isNull(longitudeIndex)) c.getDouble(longitudeIndex) else null
+                        val locationName = if (!c.isNull(locationNameIndex)) c.getString(locationNameIndex) else null
 
-                    notesList.add(
-                        Note(
-                            id = id,
-                            title = title,
-                            content = content,
-                            imageUri = imageUri,
-                            createdAt = createdAt,
-                            updatedAt = updatedAt,
-                            latitude = latitude,
-                            longitude = longitude,
-                            locationName = locationName,
-                            tags = parseTags(c.getString(tagsIndex)),
-                            isFavorite = c.getInt(favoriteIndex) == 1,
-                            isArchived = c.getInt(archivedIndex) == 1
+                        notesList.add(
+                            Note(
+                                id = id,
+                                title = title,
+                                content = content,
+                                imageUri = imageUri,
+                                createdAt = createdAt,
+                                updatedAt = updatedAt,
+                                latitude = latitude,
+                                longitude = longitude,
+                                locationName = locationName,
+                                tags = parseTags(c.getString(tagsIndex)),
+                                isFavorite = c.getInt(favoriteIndex) == 1,
+                                isArchived = c.getInt(archivedIndex) == 1
+                            )
                         )
-                    )
-                } while (c.moveToNext())
+                    } while (c.moveToNext())
+                }
             }
-        }
+        } catch (_: Exception) {}
         return notesList
     }
 
     fun getNoteById(id: Long): Note? {
-        val db = readableDatabase
-        val cursor = db.query(
-            TABLE_NOTES,
-            null,
-            "$COLUMN_ID = ?",
-            arrayOf(id.toString()),
-            null,
-            null,
-            null
-        )
-
-        return cursor.use { c ->
-            if (c.moveToFirst()) {
-                val idIndex = c.getColumnIndexOrThrow(COLUMN_ID)
-                val titleIndex = c.getColumnIndexOrThrow(COLUMN_TITLE)
-                val contentIndex = c.getColumnIndexOrThrow(COLUMN_CONTENT)
-                val imageUriIndex = c.getColumnIndexOrThrow(COLUMN_IMAGE_URI)
-                val createdAtIndex = c.getColumnIndexOrThrow(COLUMN_CREATED_AT)
-                val updatedAtIndex = c.getColumnIndexOrThrow(COLUMN_UPDATED_AT)
-                val latitudeIndex = c.getColumnIndexOrThrow(COLUMN_LATITUDE)
-                val longitudeIndex = c.getColumnIndexOrThrow(COLUMN_LONGITUDE)
-                val locationNameIndex = c.getColumnIndexOrThrow(COLUMN_LOCATION_NAME)
-                val tagsIndex = c.getColumnIndexOrThrow(COLUMN_TAGS)
-                val favoriteIndex = c.getColumnIndexOrThrow(COLUMN_IS_FAVORITE)
-                val archivedIndex = c.getColumnIndexOrThrow(COLUMN_IS_ARCHIVED)
-
-                Note(
-                    id = c.getLong(idIndex),
-                    title = c.getString(titleIndex),
-                    content = c.getString(contentIndex),
-                    imageUri = if (!c.isNull(imageUriIndex)) c.getString(imageUriIndex) else null,
-                    createdAt = c.getLong(createdAtIndex),
-                    updatedAt = c.getLong(updatedAtIndex),
-                    latitude = if (!c.isNull(latitudeIndex)) c.getDouble(latitudeIndex) else null,
-                    longitude = if (!c.isNull(longitudeIndex)) c.getDouble(longitudeIndex) else null,
-                    locationName = if (!c.isNull(locationNameIndex)) c.getString(locationNameIndex) else null,
-                    tags = parseTags(c.getString(tagsIndex)),
-                    isFavorite = c.getInt(favoriteIndex) == 1,
-                    isArchived = c.getInt(archivedIndex) == 1
-                )
-            } else {
+        return try {
+            val db = readableDatabase
+            val cursor = db.query(
+                TABLE_NOTES,
+                null,
+                "$COLUMN_ID = ?",
+                arrayOf(id.toString()),
+                null,
+                null,
                 null
+            )
+
+            cursor.use { c ->
+                if (c.moveToFirst()) {
+                    val idIndex = c.getColumnIndexOrThrow(COLUMN_ID)
+                    val titleIndex = c.getColumnIndexOrThrow(COLUMN_TITLE)
+                    val contentIndex = c.getColumnIndexOrThrow(COLUMN_CONTENT)
+                    val imageUriIndex = c.getColumnIndexOrThrow(COLUMN_IMAGE_URI)
+                    val createdAtIndex = c.getColumnIndexOrThrow(COLUMN_CREATED_AT)
+                    val updatedAtIndex = c.getColumnIndexOrThrow(COLUMN_UPDATED_AT)
+                    val latitudeIndex = c.getColumnIndexOrThrow(COLUMN_LATITUDE)
+                    val longitudeIndex = c.getColumnIndexOrThrow(COLUMN_LONGITUDE)
+                    val locationNameIndex = c.getColumnIndexOrThrow(COLUMN_LOCATION_NAME)
+                    val tagsIndex = c.getColumnIndexOrThrow(COLUMN_TAGS)
+                    val favoriteIndex = c.getColumnIndexOrThrow(COLUMN_IS_FAVORITE)
+                    val archivedIndex = c.getColumnIndexOrThrow(COLUMN_IS_ARCHIVED)
+
+                    Note(
+                        id = c.getLong(idIndex),
+                        title = c.getString(titleIndex),
+                        content = c.getString(contentIndex),
+                        imageUri = if (!c.isNull(imageUriIndex)) c.getString(imageUriIndex) else null,
+                        createdAt = c.getLong(createdAtIndex),
+                        updatedAt = c.getLong(updatedAtIndex),
+                        latitude = if (!c.isNull(latitudeIndex)) c.getDouble(latitudeIndex) else null,
+                        longitude = if (!c.isNull(longitudeIndex)) c.getDouble(longitudeIndex) else null,
+                        locationName = if (!c.isNull(locationNameIndex)) c.getString(locationNameIndex) else null,
+                        tags = parseTags(c.getString(tagsIndex)),
+                        isFavorite = c.getInt(favoriteIndex) == 1,
+                        isArchived = c.getInt(archivedIndex) == 1
+                    )
+                } else {
+                    null
+                }
             }
+        } catch (_: Exception) {
+            null
         }
     }
 

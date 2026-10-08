@@ -6,10 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
@@ -17,12 +15,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.ynov.geotagged_notebook.data.NoteRepository
 import com.ynov.geotagged_notebook.ui.screens.AddEditNoteScreen
 import com.ynov.geotagged_notebook.ui.screens.NoteDetailScreen
 import com.ynov.geotagged_notebook.ui.screens.NoteListScreen
 import com.ynov.geotagged_notebook.ui.screens.NoteMapScreen
 import com.ynov.geotagged_notebook.ui.theme.GEOTAGGED_NOTEBOOKTheme
+import com.ynov.geotagged_notebook.ui.viewmodel.AddEditNoteViewModel
+import com.ynov.geotagged_notebook.ui.viewmodel.NoteListViewModel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -39,15 +38,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun GeotaggedNotebookApp() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val repository = remember { NoteRepository.getInstance(context) }
-    val notes by repository.notes.collectAsState()
-    val coroutineScope = rememberCoroutineScope()
     val navController = rememberNavController()
-
-    LaunchedEffect(Unit) {
-        repository.refreshNotes()
-    }
+    val listViewModel: NoteListViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val notes by listViewModel.notes.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     NavHost(
         navController = navController,
@@ -56,7 +50,7 @@ fun GeotaggedNotebookApp() {
     ) {
         composable("list") {
             NoteListScreen(
-                notes = notes,
+                viewModel = listViewModel,
                 onNoteClick = { noteId ->
                     navController.navigate("detail/$noteId")
                 },
@@ -65,16 +59,6 @@ fun GeotaggedNotebookApp() {
                 },
                 onOpenMapClick = {
                     navController.navigate("map")
-                },
-                onToggleFavorite = { note ->
-                    coroutineScope.launch {
-                        repository.updateNote(
-                            note.copy(
-                                isFavorite = !note.isFavorite,
-                                updatedAt = System.currentTimeMillis()
-                            )
-                        )
-                    }
                 }
             )
         }
@@ -96,10 +80,10 @@ fun GeotaggedNotebookApp() {
             arguments = listOf(navArgument("noteId") { type = NavType.LongType })
         ) { backStackEntry ->
             val noteId = backStackEntry.arguments?.getLong("noteId") ?: 0L
-            val note = notes.find { it.id == noteId }
+            val editViewModel: AddEditNoteViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 
             NoteDetailScreen(
-                note = note,
+                noteId = noteId,
                 onBackClick = {
                     navController.popBackStack()
                 },
@@ -108,7 +92,7 @@ fun GeotaggedNotebookApp() {
                 },
                 onDeleteClick = { id ->
                     coroutineScope.launch {
-                        repository.deleteNote(id)
+                        editViewModel.deleteNote(id)
                         navController.popBackStack()
                     }
                 }
@@ -125,32 +109,11 @@ fun GeotaggedNotebookApp() {
             )
         ) { backStackEntry ->
             val noteId = backStackEntry.arguments?.getLong("noteId") ?: -1L
-            val noteToEdit = if (noteId != -1L) notes.find { it.id == noteId } else null
 
             AddEditNoteScreen(
-                noteToEdit = noteToEdit,
+                noteId = if (noteId != -1L) noteId else 0L,
                 onBackClick = {
                     navController.popBackStack()
-                },
-                onSaveClick = { note ->
-                    try {
-                        if (note.id == 0L) {
-                            repository.insertNote(note)
-                        } else {
-                            repository.updateNote(note)
-                        }
-                        true
-                    } catch (_: Exception) {
-                        false
-                    }
-                },
-                onDeleteClick = { id ->
-                    try {
-                        repository.deleteNote(id)
-                        true
-                    } catch (_: Exception) {
-                        false
-                    }
                 }
             )
         }
